@@ -1,6 +1,5 @@
 {
     "PORT" : 8080,
-    "ThreadLimit" : 2,
     "Servers" : [
         "http://localhost:8080",
         "http://localhost:8081",

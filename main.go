@@ -3,20 +3,16 @@ package main
 import (
 	"fmt"
 	"log"
-	"making-loadbalancer/balancer"
+	loadbalancer "making-loadbalancer/loadBalancer"
 	"net/http"
 )
 
 func main() {
-	fmt.Println("Started..")
-	lb, err := balancer.InitializeBalancer("./config.json")
+	lb, err := loadbalancer.Initialize("./config.json")
 	if err != nil {
-		log.Fatal("failed to initialize loadBalancer, reason\n", err)
+		log.Fatal("failed to initialize load balancer, reason\n", err)
 	}
 
-	lb.StartWorkers()
-	fmt.Printf("load balancer started on http://localhost:%d\n", lb.PORT)
-	http.HandleFunc("/", lb.ReqHandler())
+	fmt.Printf("Load balancer started on http://localhost:%d", lb.PORT)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", lb.PORT), nil))
-
 }
