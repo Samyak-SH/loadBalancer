@@ -3,17 +3,18 @@ package loadbalancer
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"making-loadbalancer/server"
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"sync"
+	"time"
 )
 
 type LoadBalancer struct {
 	PORT               uint16
-	Servers            []server.Server
+	Servers            []*server.Server
 	Algorithm          uint16
 	Proxy              httputil.ReverseProxy
 	CurrentServerIndex int
@@ -21,9 +22,10 @@ type LoadBalancer struct {
 }
 
 type configFile struct {
-	Port      uint16   `json:"PORT"`
-	Servers   []string `json:"Servers"`
-	Algorithm uint16   `json:"Algorithm"`
+	Port              uint16   `json:"PORT"`
+	Servers           []string `json:"Servers"`
+	Algorithm         uint16   `json:"Algorithm"`
+	HealCheckInterval int      `json:"HealCheckInterval"`
 }
 
 func Initialize(configFilePath string) (*LoadBalancer, error) {
@@ -49,20 +51,20 @@ func Initialize(configFilePath string) (*LoadBalancer, error) {
 	lb.ServerCount = len(cf.Servers)
 	for _, url := range cf.Servers {
 		s := server.NewServer(url)
-		lb.Servers = append(lb.Servers, *s)
+		lb.Servers = append(lb.Servers, s)
 	}
 
 	return lb, nil
 }
 
-func (lb *LoadBalancer) getNextServer() (server.Server, error) {
+func (lb *LoadBalancer) getNextServer() (*server.Server, error) {
 	attempt := 0
 	for !lb.Servers[lb.CurrentServerIndex].IsAlive() && attempt <= lb.ServerCount {
 		lb.CurrentServerIndex = (lb.CurrentServerIndex + 1) % lb.ServerCount
 		attempt++
 	}
 	if attempt > lb.ServerCount {
-		return server.Server{}, errors.New("no healthy servers available")
+		return &server.Server{}, errors.New("no healthy servers available")
 	}
 	server := lb.Servers[lb.CurrentServerIndex]
 	lb.CurrentServerIndex = (lb.CurrentServerIndex + 1) % lb.ServerCount
@@ -71,9 +73,7 @@ func (lb *LoadBalancer) getNextServer() (server.Server, error) {
 
 func (lb *LoadBalancer) roundRobin(w http.ResponseWriter, r *http.Request) {
 	nextServer, err := lb.getNextServer()
-	fmt.Println("Serving using ", nextServer)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -88,5 +88,12 @@ func (lb *LoadBalancer) Serve(w http.ResponseWriter, r *http.Request) {
 		break
 	default:
 		http.Error(w, "Invalid load balancing algorithm", http.StatusBadRequest)
+	}
+}
+
+func (lb *LoadBalancer) StartHealthChecks(wg *sync.WaitGroup) {
+	client := &http.Client{Timeout: 2 * time.Second}
+	for i := range lb.Servers {
+		go lb.Servers[i].StartHealthCheck(client, wg)
 	}
 }

@@ -6,12 +6,15 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"sync"
+	"time"
 )
 
 type Server struct {
 	serverURL string
 	isAlive   bool
 	proxy     *httputil.ReverseProxy
+	mu        sync.RWMutex
 }
 
 func NewServer(address string) *Server {
@@ -27,8 +30,38 @@ func NewServer(address string) *Server {
 	}
 }
 
+func (s *Server) StartHealthCheck(client *http.Client, wg *sync.WaitGroup) {
+	log.Printf("Health check started for %s\n", s.GetServerURL())
+	wg.Done()
+	for {
+		response, err := client.Get(s.GetServerURL())
+		if err != nil || (response != nil && response.StatusCode >= 500) {
+			s.SetAlive(false)
+			log.Printf("Server with url %s down\n", s.GetServerURL())
+		} else {
+			if !s.isAlive {
+				s.SetAlive(true)
+				log.Printf("Server with url %s back up\n", s.GetServerURL())
+			}
+
+		}
+		if response != nil {
+			response.Body.Close()
+		}
+		time.Sleep(5 * time.Second)
+	}
+}
+
 func (s *Server) IsAlive() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.isAlive
+}
+
+func (s *Server) SetAlive(status bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.isAlive = status
 }
 
 func (s *Server) GetServerURL() string {
