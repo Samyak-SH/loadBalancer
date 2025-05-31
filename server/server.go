@@ -1,14 +1,29 @@
 package server
 
+import (
+	"log"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
+)
+
 type Server struct {
-	ServerURL string
+	serverURL string
 	isAlive   bool
+	proxy     *httputil.ReverseProxy
 }
 
-func NewServer(url string) *Server {
+func NewServer(address string) *Server {
+	serverUrl, err := url.Parse(address)
+	if err != nil {
+		log.Fatal("failed to parse address of a server ", address)
+		os.Exit(0)
+	}
 	return &Server{
-		ServerURL: url,
+		serverURL: address,
 		isAlive:   true,
+		proxy:     httputil.NewSingleHostReverseProxy(serverUrl),
 	}
 }
 
@@ -17,5 +32,9 @@ func (s *Server) IsAlive() bool {
 }
 
 func (s *Server) GetServerURL() string {
-	return s.ServerURL
+	return s.serverURL
+}
+
+func (s *Server) Serve(w http.ResponseWriter, r *http.Request) {
+	s.proxy.ServeHTTP(w, r)
 }

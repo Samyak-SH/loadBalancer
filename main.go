@@ -13,6 +13,7 @@ func main() {
 		log.Fatal("failed to initialize load balancer, reason\n", err)
 	}
 
-	fmt.Printf("Load balancer started on http://localhost:%d", lb.PORT)
+	http.HandleFunc("/", lb.Serve)
+	fmt.Printf("Load balancer started on http://localhost:%d\n", lb.PORT)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", lb.PORT), nil))
 }
