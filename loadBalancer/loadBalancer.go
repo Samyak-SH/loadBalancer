@@ -25,6 +25,7 @@ type LoadBalancer struct {
 	CurrentServerIndex  int
 	ServerCount         int
 	HealthCheckInterval int
+	SecretKey           string
 }
 
 type configFile struct {
@@ -56,6 +57,7 @@ func Initialize(configFilePath string) (*LoadBalancer, error) {
 	lb.CurrentServerIndex = 0
 	lb.ServerCount = len(cf.Servers)
 	lb.HealthCheckInterval = cf.HealthCheckInterval
+	lb.SecretKey = os.Getenv("SECRET_KEY")
 	for _, url := range cf.Servers {
 		s := server.NewServer(url)
 		lb.Servers = append(lb.Servers, s)
@@ -123,7 +125,6 @@ func (lb *LoadBalancer) roundRobin(w http.ResponseWriter, r *http.Request) {
 
 func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 	ssidCookie, err := r.Cookie("SSID")
-	testKey := "ThisIsTestKey"
 	if err != nil {
 		if err == http.ErrNoCookie {
 			// fmt.Println("noo cookie ssid found")
@@ -134,7 +135,7 @@ func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			//encrypt server index and store it in client's cookie
-			serverSignature := createSignature(strconv.Itoa(serverIndex), testKey)
+			serverSignature := createSignature(strconv.Itoa(serverIndex), lb.SecretKey)
 			newSsidCookieValue := strconv.Itoa(serverIndex) + "." + serverSignature
 			// fmt.Println("newwSsidCOokieValue", newSsidCookieValue)
 			newSSIDCookie := &http.Cookie{
@@ -151,7 +152,7 @@ func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	//Verify signature and serve
-	verified, serverIndex := verifySignature(ssidCookie.Value, testKey)
+	verified, serverIndex := verifySignature(ssidCookie.Value, lb.SecretKey)
 	if verified {
 		if serverIndex > lb.ServerCount-1 {
 			http.Error(w, "Invalid cookie", http.StatusBadRequest)
