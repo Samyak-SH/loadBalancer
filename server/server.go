@@ -30,7 +30,7 @@ func NewServer(address string) *Server {
 	}
 }
 
-func (s *Server) StartHealthCheck(client *http.Client, wg *sync.WaitGroup) {
+func (s *Server) StartHealthCheck(client *http.Client, wg *sync.WaitGroup, healthCheckInterval int) {
 	log.Printf("Health check started for %s\n", s.GetServerURL())
 	wg.Done()
 	for {
@@ -48,7 +48,7 @@ func (s *Server) StartHealthCheck(client *http.Client, wg *sync.WaitGroup) {
 		if response != nil {
 			response.Body.Close()
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Duration(healthCheckInterval) * time.Second)
 	}
 }
 

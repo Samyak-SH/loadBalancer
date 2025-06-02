@@ -17,6 +17,14 @@ func main() {
 	wg.Add(lb.ServerCount)
 	lb.StartHealthChecks(&wg)
 	wg.Wait()
+	switch lb.Algorithm {
+	case 1:
+		fmt.Println("Algorithm: Round robin")
+		break
+	case 2:
+		fmt.Println("Algorithm: sticky session")
+		break
+	}
 
 	http.HandleFunc("/", lb.Serve)
 	fmt.Printf("Load balancer started on http://localhost:%d\n", lb.PORT)
