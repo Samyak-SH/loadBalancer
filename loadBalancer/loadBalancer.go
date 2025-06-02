@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"making-loadbalancer/server"
 	"net/http"
@@ -99,8 +98,8 @@ func verifySignature(value, key string) (bool, int) {
 	signatureHex := parts[1]
 
 	expectedSignatureHex := createSignature(indexString, key)
-	fmt.Println("Recieved signature", signatureHex)
-	fmt.Println("Expected signature", expectedSignatureHex)
+	// fmt.Println("Recieved signature", signatureHex)
+	// fmt.Println("Expected signature", expectedSignatureHex)
 	if !hmac.Equal([]byte(expectedSignatureHex), []byte(signatureHex)) {
 		return false, -1
 	}
@@ -127,7 +126,7 @@ func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 	testKey := "ThisIsTestKey"
 	if err != nil {
 		if err == http.ErrNoCookie {
-			fmt.Println("noo cookie ssid found")
+			// fmt.Println("noo cookie ssid found")
 			//get server to redirect to
 			nextServer, serverIndex, getServerError := lb.getNextServer()
 			if getServerError != nil {
@@ -137,7 +136,7 @@ func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 			//encrypt server index and store it in client's cookie
 			serverSignature := createSignature(strconv.Itoa(serverIndex), testKey)
 			newSsidCookieValue := strconv.Itoa(serverIndex) + "." + serverSignature
-			fmt.Println("newwSsidCOokieValue", newSsidCookieValue)
+			// fmt.Println("newwSsidCOokieValue", newSsidCookieValue)
 			newSSIDCookie := &http.Cookie{
 				Name:     "SSID",
 				Value:    newSsidCookieValue,
@@ -166,6 +165,7 @@ func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 
 // Alogrithm detection
 func (lb *LoadBalancer) Serve(w http.ResponseWriter, r *http.Request) {
+	// fmt.Println(r.URL.Path)
 	switch lb.Algorithm {
 	case 1:
 		lb.roundRobin(w, r)
