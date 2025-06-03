@@ -18,7 +18,7 @@ func main() {
 	if envLoadErr != nil {
 		log.Fatal("failed to load env files, reason\n", envLoadErr)
 	}
-	fmt.Println("env files loaded successfully")
+	fmt.Printf("env files loaded successfully\n\n")
 	wg.Done()
 	//initialize load balancer configurations
 	lb, err := loadbalancer.Initialize("./config.json")
@@ -32,10 +32,13 @@ func main() {
 	wg.Wait()
 	switch lb.Algorithm {
 	case 1:
-		fmt.Println("Algorithm: Round robin")
+		fmt.Printf("\nAlgorithm: Round robin\n\n")
 		break
 	case 2:
-		fmt.Println("Algorithm: sticky session")
+		fmt.Printf("\nAlgorithm: Sticky Session\n\n")
+		break
+	case 3:
+		fmt.Printf("\nAlgorithm: IP Hashing\n\n")
 		break
 	}
 

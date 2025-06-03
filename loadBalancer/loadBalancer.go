@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	hashring "making-loadbalancer/hashRing"
 	"making-loadbalancer/server"
 	"net/http"
 	"net/http/httputil"
@@ -26,6 +28,8 @@ type LoadBalancer struct {
 	ServerCount         int
 	HealthCheckInterval int
 	SecretKey           string
+	HashRing            hashring.HashRing
+	VirtualNodeCount    int
 }
 
 type configFile struct {
@@ -33,6 +37,7 @@ type configFile struct {
 	Servers             []string `json:"Servers"`
 	Algorithm           uint16   `json:"Algorithm"`
 	HealthCheckInterval int      `json:"HealthCheckInterval"`
+	VirtualNodeCount    int      `json:"VirtualNodeCount"`
 }
 
 func Initialize(configFilePath string) (*LoadBalancer, error) {
@@ -61,6 +66,12 @@ func Initialize(configFilePath string) (*LoadBalancer, error) {
 	for _, url := range cf.Servers {
 		s := server.NewServer(url)
 		lb.Servers = append(lb.Servers, s)
+	}
+
+	//initialize hashring if algorithm is IPhashing
+	if lb.Algorithm == 3 {
+		lb.VirtualNodeCount = cf.VirtualNodeCount
+		lb.HashRing = *hashring.InitializeHashRing(lb.VirtualNodeCount, lb.Servers)
 	}
 
 	return lb, nil
@@ -145,6 +156,7 @@ func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 			}
 			http.SetCookie(w, newSSIDCookie)
 			//serve user with that server
+			log.Printf("Forwarding request to %s\n", nextServer.GetServerURL())
 			nextServer.Serve(w, r)
 			return
 		} else {
@@ -164,6 +176,22 @@ func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (lb *LoadBalancer) IPHashing(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Client's IP is", r.RemoteAddr)
+
+	//replace local host loopback
+	if r.Host == "::1" {
+		r.Host = "127.0.0.1"
+	}
+	server, err := lb.HashRing.GetServer(r.Host)
+	if err != nil {
+		http.Error(w, "No Healthy servers", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Forwarding request to %s\n", server.GetServerURL())
+	server.Serve(w, r)
+}
+
 // Alogrithm detection
 func (lb *LoadBalancer) Serve(w http.ResponseWriter, r *http.Request) {
 	// fmt.Println(r.URL.Path)
@@ -174,24 +202,36 @@ func (lb *LoadBalancer) Serve(w http.ResponseWriter, r *http.Request) {
 	case 2:
 		lb.stickySession(w, r)
 		break
+	case 3:
+		lb.IPHashing(w, r)
 	default:
 		http.Error(w, "Invalid load balancing algorithm", http.StatusBadRequest)
 	}
 }
 
 // Health check
-func performHealthCheck(s *server.Server, client *http.Client, wg *sync.WaitGroup, healthCheckInterval int) {
+func (lb *LoadBalancer) performHealthCheck(s *server.Server, client *http.Client, wg *sync.WaitGroup, healthCheckInterval int) {
 	log.Printf("Health check started for %s\n", s.GetServerURL())
 	wg.Done()
 	for {
 		response, err := client.Get(s.GetServerURL())
 		if err != nil || (response != nil && response.StatusCode >= 500) {
-			s.SetAlive(false)
-			log.Printf("Server with url %s down\n", s.GetServerURL())
+			if s.IsAlive() {
+				s.SetAlive(false)
+				log.Printf("Server with url %s down\n", s.GetServerURL())
+				if lb.Algorithm == 3 {
+					log.Printf("Removing %s from hash ring\n", s.GetServerURL())
+					lb.HashRing.RemoveServer(s)
+				}
+			}
 		} else {
 			if !s.IsAlive() {
 				s.SetAlive(true)
 				log.Printf("Server with url %s back up\n", s.GetServerURL())
+				if lb.Algorithm == 3 {
+					log.Printf("Adding %s back to hash ring\n", s.GetServerURL())
+					lb.HashRing.AddServer(s)
+				}
 			}
 
 		}
@@ -204,6 +244,6 @@ func performHealthCheck(s *server.Server, client *http.Client, wg *sync.WaitGrou
 func (lb *LoadBalancer) StartHealthChecks(wg *sync.WaitGroup) {
 	client := &http.Client{Timeout: 2 * time.Second}
 	for i := range lb.Servers {
-		go performHealthCheck(lb.Servers[i], client, wg, lb.HealthCheckInterval)
+		go lb.performHealthCheck(lb.Servers[i], client, wg, lb.HealthCheckInterval)
 	}
 }
