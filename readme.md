@@ -23,7 +23,7 @@ Use the `go.mod` file to install all required Go packages:
 go mod download
 ```
 
-### 3. Setup Environment Variables
+### 3. Setup Environment Variables (Required for Sticky Session Algorithm)
 
 Create a `.env` file in the root directory of the project and add the following:
 
@@ -53,16 +53,16 @@ Edit the `config.json` file in the root of the project to configure the load bal
 
 ```json
 {
-    "PORT" : x,
+    "PORT" : ,
     "Servers" : [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3002",
         "http://localhost:3003"
     ],
-    "Algorithm" : x,
-    "VirtualNodeCount" : x,
-    "HealthCheckInterval" : x
+    "Algorithm" : ,
+    "VirtualNodeCount" : ,
+    "HealthCheckInterval" : 
 }
 ```
 
