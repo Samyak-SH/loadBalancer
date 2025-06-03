@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"sync"
-	"time"
 )
 
 type Server struct {
@@ -27,28 +26,6 @@ func NewServer(address string) *Server {
 		serverURL: address,
 		isAlive:   true,
 		proxy:     httputil.NewSingleHostReverseProxy(serverUrl),
-	}
-}
-
-func (s *Server) StartHealthCheck(client *http.Client, wg *sync.WaitGroup, healthCheckInterval int) {
-	log.Printf("Health check started for %s\n", s.GetServerURL())
-	wg.Done()
-	for {
-		response, err := client.Get(s.GetServerURL())
-		if err != nil || (response != nil && response.StatusCode >= 500) {
-			s.SetAlive(false)
-			log.Printf("Server with url %s down\n", s.GetServerURL())
-		} else {
-			if !s.isAlive {
-				s.SetAlive(true)
-				log.Printf("Server with url %s back up\n", s.GetServerURL())
-			}
-
-		}
-		if response != nil {
-			response.Body.Close()
-		}
-		time.Sleep(time.Duration(healthCheckInterval) * time.Second)
 	}
 }
 
