@@ -20,7 +20,7 @@ func main() {
 	}
 	fmt.Printf("env files loaded successfully\n\n")
 	wg.Done()
-	//initialize load balancer configurations
+	// initialize load balancer configurations
 	lb, err := loadbalancer.Initialize("./config.json")
 	if err != nil {
 		log.Fatal("failed to initialize load balancer, reason\n", err)

@@ -63,6 +63,7 @@ func Initialize(configFilePath string) (*LoadBalancer, error) {
 	lb.ServerCount = len(cf.Servers)
 	lb.HealthCheckInterval = cf.HealthCheckInterval
 	lb.SecretKey = os.Getenv("SECRET_KEY")
+	fmt.Println("Initialized secret key as ", lb.SecretKey)
 	for _, url := range cf.Servers {
 		s := server.NewServer(url)
 		lb.Servers = append(lb.Servers, s)
@@ -134,30 +135,34 @@ func (lb *LoadBalancer) roundRobin(w http.ResponseWriter, r *http.Request) {
 	nextServer.Serve(w, r)
 }
 
+func (lb *LoadBalancer) serverStickySession(w http.ResponseWriter, r *http.Request) {
+	//get server to redirect to
+	nextServer, serverIndex, getServerError := lb.getNextServer()
+	if getServerError != nil {
+		http.Error(w, "no healthy servers found", http.StatusInternalServerError)
+		return
+	}
+	//encrypt server index and store it in client's cookie
+	serverSignature := createSignature(strconv.Itoa(serverIndex), lb.SecretKey)
+	newSsidCookieValue := strconv.Itoa(serverIndex) + "." + serverSignature
+	// fmt.Println("newwSsidCOokieValue", newSsidCookieValue)
+	newSSIDCookie := &http.Cookie{
+		Name:     "SSID",
+		Value:    newSsidCookieValue,
+		HttpOnly: true,
+	}
+	http.SetCookie(w, newSSIDCookie)
+	//serve user with that server
+	log.Printf("Forwarding request to %s\n", nextServer.GetServerURL())
+	nextServer.Serve(w, r)
+}
+
 func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 	ssidCookie, err := r.Cookie("SSID")
 	if err != nil {
 		if err == http.ErrNoCookie {
 			// fmt.Println("noo cookie ssid found")
-			//get server to redirect to
-			nextServer, serverIndex, getServerError := lb.getNextServer()
-			if getServerError != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			//encrypt server index and store it in client's cookie
-			serverSignature := createSignature(strconv.Itoa(serverIndex), lb.SecretKey)
-			newSsidCookieValue := strconv.Itoa(serverIndex) + "." + serverSignature
-			// fmt.Println("newwSsidCOokieValue", newSsidCookieValue)
-			newSSIDCookie := &http.Cookie{
-				Name:     "SSID",
-				Value:    newSsidCookieValue,
-				HttpOnly: true,
-			}
-			http.SetCookie(w, newSSIDCookie)
-			//serve user with that server
-			log.Printf("Forwarding request to %s\n", nextServer.GetServerURL())
-			nextServer.Serve(w, r)
+			lb.serverStickySession(w, r)
 			return
 		} else {
 			http.Error(w, "Failed to process cookie", http.StatusBadRequest)
@@ -169,7 +174,12 @@ func (lb *LoadBalancer) stickySession(w http.ResponseWriter, r *http.Request) {
 		if serverIndex > lb.ServerCount-1 {
 			http.Error(w, "Invalid cookie", http.StatusBadRequest)
 		} else {
-			lb.Servers[serverIndex].Serve(w, r)
+			if lb.Servers[serverIndex].IsAlive() {
+				lb.Servers[serverIndex].Serve(w, r)
+			} else {
+				fmt.Println("reached here")
+				lb.serverStickySession(w, r)
+			}
 		}
 	} else {
 		http.Error(w, "Invalid cookie", http.StatusBadRequest)

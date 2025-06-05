@@ -1,2 +1,5 @@
 /nodeserver/node_modules
 *.env
+loadbalancer
+.dockerignore
+Dockerfile
