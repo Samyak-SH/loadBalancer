@@ -6,7 +6,8 @@
         "http://localhost:3002",
         "http://localhost:3003"
     ],
-    "Algorithm" : 2,
+    "Algorithm" : 1,
     "VirtualNodeCount" : 5,
-    "HealthCheckInterval" : 5
+    "HealthCheckInterval" : 5,
+    "SECRET_KEY":"mykey123"
 }

@@ -38,6 +38,7 @@ type configFile struct {
 	Algorithm           uint16   `json:"Algorithm"`
 	HealthCheckInterval int      `json:"HealthCheckInterval"`
 	VirtualNodeCount    int      `json:"VirtualNodeCount"`
+	SecretKey           string   `json:"SECRET_KEY"`
 }
 
 func Initialize(configFilePath string) (*LoadBalancer, error) {
@@ -62,7 +63,7 @@ func Initialize(configFilePath string) (*LoadBalancer, error) {
 	lb.CurrentServerIndex = 0
 	lb.ServerCount = len(cf.Servers)
 	lb.HealthCheckInterval = cf.HealthCheckInterval
-	lb.SecretKey = os.Getenv("SECRET_KEY")
+	lb.SecretKey = cf.SecretKey
 	fmt.Println("Initialized secret key as ", lb.SecretKey)
 	for _, url := range cf.Servers {
 		s := server.NewServer(url)

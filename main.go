@@ -5,27 +5,22 @@ import (
 	"log"
 	loadbalancer "making-loadbalancer/loadBalancer"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
 	var wg sync.WaitGroup
-	//load env files
-	wg.Add(1)
-	envLoadErr := godotenv.Load(".env")
-	if envLoadErr != nil {
-		log.Fatal("failed to load env files, reason\n", envLoadErr)
-	}
-	fmt.Printf("env files loaded successfully\n\n")
-	wg.Done()
-	// initialize load balancer configurations
 	lb, err := loadbalancer.Initialize("./config.json")
 	if err != nil {
 		log.Fatal("failed to initialize load balancer, reason\n", err)
 	}
-
+	envs := os.Environ()
+	for index, env := range envs {
+		splitenv := strings.Split(env, "=")
+		fmt.Printf("%d %s\n", index, splitenv[0])
+	}
 	//intialize health checks
 	wg.Add(lb.ServerCount)
 	lb.StartHealthChecks(&wg)
