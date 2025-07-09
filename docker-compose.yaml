@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  load-balancer:
+    image: load-balancer
+    container_name: lb
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      SERVERS: "http://localhost:3772,http://localhost:3001,http://localhost:3002,http://localhost:3003"
+      ALGORITHM: 3
+      VIRTUAL_NODE_COUNT: 5
+      HEALTH_CHECK_INTERVAL: 5
+      SECRET_KEY: "mykey123"
