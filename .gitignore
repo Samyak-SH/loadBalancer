@@ -3,3 +3,4 @@
 loadbalancer
 .dockerignore
 Dockerfile
+/test

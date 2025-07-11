@@ -5,8 +5,6 @@ import (
 	"log"
 	loadbalancer "making-loadbalancer/loadBalancer"
 	"net/http"
-	"os"
-	"strings"
 	"sync"
 )
 
@@ -15,11 +13,6 @@ func main() {
 	lb, err := loadbalancer.Initialize("./config.json")
 	if err != nil {
 		log.Fatal("failed to initialize load balancer, reason\n", err)
-	}
-	envs := os.Environ()
-	for index, env := range envs {
-		splitenv := strings.Split(env, "=")
-		fmt.Printf("%d %s\n", index, splitenv[0])
 	}
 	//intialize health checks
 	wg.Add(lb.ServerCount)
