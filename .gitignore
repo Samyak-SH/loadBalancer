@@ -1,6 +1,5 @@
-/nodeserver/node_modules
+/nodeserver
 *.env
 loadbalancer
 .dockerignore
-Dockerfile
 /test
