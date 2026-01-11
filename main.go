@@ -21,13 +21,10 @@ func main() {
 	switch lb.Algorithm {
 	case 1:
 		fmt.Printf("\nAlgorithm: Round robin\n\n")
-		break
 	case 2:
 		fmt.Printf("\nAlgorithm: Sticky Session\n\n")
-		break
 	case 3:
 		fmt.Printf("\nAlgorithm: IP Hashing\n\n")
-		break
 	}
 
 	//handle redirecting

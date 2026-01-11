@@ -209,10 +209,8 @@ func (lb *LoadBalancer) Serve(w http.ResponseWriter, r *http.Request) {
 	switch lb.Algorithm {
 	case 1:
 		lb.roundRobin(w, r)
-		break
 	case 2:
 		lb.stickySession(w, r)
-		break
 	case 3:
 		lb.IPHashing(w, r)
 	default:
